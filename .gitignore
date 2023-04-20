@@ -169,5 +169,5 @@ devel/
 .vscode/
 
 __pycache__/
-src/orb_slam3/Vocabulary/ORBvoc.txt
-src/orb_slam3/Vocabulary/ORBvoc.txt.tar.gz
+*/ORBvoc.txt
+*/ORBvoc.txt.tar.gz
