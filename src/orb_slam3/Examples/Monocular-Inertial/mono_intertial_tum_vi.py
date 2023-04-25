@@ -8,9 +8,9 @@ import argparse
 
 import ORB_SLAM3.System
 
+from ORB_SLAM3.Tools import errorPrint
 
-def errorPrint(str):
-    print(f"\033[31m{str}\033[0m")
+
 
 def LoadImagesTUMVI(strImagePath, strPathTimes, vstrImages, vTimeStamps):
     print(f"strImagePath = {strImagePath}")
@@ -51,19 +51,19 @@ def main():
     ]
     argc = len(argv)
     num_seq = int((argc - 3) / 3)
-    bFileName = ((argc % 3) == 1)
+    bfile_name = ((argc % 3) == 1)
 
-    filename = ""
-    if (bFileName):
-        filename = str(argv[argc-1])
-    print(f"file name: {filename}")
+    file_name = ""
+    if (bfile_name):
+        file_name = str(argv[argc-1])
+    print(f"file name: {file_name}")
 
     if(argc < 6):
         errorPrint("Usage: ./mono_inertial_tum_vi path_to_vocabulary path_to_settings path_to_image_folder_1 path_to_times_file_1 path_to_imu_data_1 (path_to_image_folder_2 path_to_times_file_2 path_to_imu_data_2 ... path_to_image_folder_N path_to_times_file_N path_to_imu_data_N) (trajectory_file_name)")
         return 1
     
     # load all sequences
-    vstrImageFilenames = [[] for i in range(num_seq)]
+    vstrImagefile_names = [[] for i in range(num_seq)]
     vTimestampsCam = [[] for i in range(num_seq)]
     vTimestampsImu = [[] for i in range(num_seq)]
     vAcc = [[] for i in range(num_seq)]
@@ -75,13 +75,13 @@ def main():
     tot_images = 0
     for seq in range(num_seq):
         print(f"Loading images for sequence {seq}...")
-        LoadImagesTUMVI(argv[3*(seq+1)], (argv[3*(seq+1)+1]), vstrImageFilenames[seq], vTimestampsCam[seq])
+        LoadImagesTUMVI(argv[3*(seq+1)], (argv[3*(seq+1)+1]), vstrImagefile_names[seq], vTimestampsCam[seq])
         print(f"LOADED!")
         print(f"Loading IMU for sequence {seq}...")
         LoadIMU(str(argv[3*(seq+1)+2]), vTimestampsImu[seq], vAcc[seq], vGyro[seq])
         print(f"LOADED!")
 
-        nImages[seq] = len(vstrImageFilenames[seq])
+        nImages[seq] = len(vstrImagefile_names[seq])
         tot_images += nImages[seq]
         nImu[seq] = len(vTimestampsImu[seq])
 
@@ -105,8 +105,11 @@ def main():
     cout << "IMU data in the sequence: " << nImu << endl << endl"""
 
     # Create SLAM system. It initializes all system threads and gets ready to process frames.
-    SLAM = ORB_SLAM3.System(argv[1],argv[2],mSensor=ORB_SLAM3.System.IMU_MONOCULAR, true, 0, file_name)
-    imageScale = SLAM.GetImageScale()
+    SLAM = ORB_SLAM3.System(argv[1],argv[2], ORB_SLAM3.System.IMU_MONOCULAR, True, 0, file_name)
+
+    # imageScale = SLAM.GetImageScale()
+
+    # imageScale = SLAM.GetImageScale()
 
     # t_resize, t_track = 0.0, 0.0
     # proccIm = 0
@@ -121,7 +124,7 @@ def main():
 #         for ni in range(len(nImages[seq])):
 #             proccIm += 1
 #             # Read image from file
-#             im = cv::imread(vstrImageFilenames[seq][ni],cv::IMREAD_GRAYSCALE) #,cv::IMREAD_GRAYSCALE)
+#             im = cv::imread(vstrImagefile_names[seq][ni],cv::IMREAD_GRAYSCALE) #,cv::IMREAD_GRAYSCALE)
 
 #             # clahe
 #             clahe->apply(im,im)
@@ -133,7 +136,7 @@ def main():
 #             if(im.empty())
 #             {
 #                 cerr << endl << "Failed to load image at: "
-#                      <<  vstrImageFilenames[seq][ni] << endl
+#                      <<  vstrImagefile_names[seq][ni] << endl
 #                 return 1
 #             }
 
@@ -237,7 +240,7 @@ def main():
 
 #     # Save camera trajectory
 
-#     if bFileName:
+#     if bfile_name:
 #         const string kf_file =  "kf_" + string(argv[argc-1]) + ".txt"
 #         const string f_file =  "f_" + string(argv[argc-1]) + ".txt"
 #         SLAM.SaveTrajectoryEuRoC(f_file)

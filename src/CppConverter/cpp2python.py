@@ -58,7 +58,7 @@ def handleJudge(line):
     return line
 
 if __name__=="__main__":
-    file_path = f"/home/lj/Documents/personal_SLAM_python/src/orb_slam3/ORB_SLAM3/Setting1.py"
+    file_path = f"/home/lj/Documents/personal_SLAM_python/src/orb_slam3/ORB_SLAM3/Setting.py"
     fr = open(file_path, 'r')
     lines = fr.readlines()
     fr.close()
