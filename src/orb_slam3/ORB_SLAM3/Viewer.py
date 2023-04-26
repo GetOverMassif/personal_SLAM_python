@@ -1,7 +1,7 @@
 import cv2
 import sys
 
-from Tools import errorPrint
+from ORB_SLAM3.Tools import errorPrint
 
 class Viewer:
     def __init__(self, pSystem, pFrameDrawer, pMapDrawer, pTracking, strSettingPath, settings):
@@ -28,7 +28,5 @@ class Viewer:
                 # try:
                 sys.exit(-1)
                 # catch(exception &e)
-
-
         self.mbStopTrack = False
     

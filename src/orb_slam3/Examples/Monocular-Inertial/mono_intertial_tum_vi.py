@@ -6,10 +6,9 @@ sys.path.append(ORB_DIR)
 
 import argparse
 
-import ORB_SLAM3.System
+from ORB_SLAM3.System import System
 
 from ORB_SLAM3.Tools import errorPrint
-
 
 
 def LoadImagesTUMVI(strImagePath, strPathTimes, vstrImages, vTimeStamps):
@@ -105,7 +104,7 @@ def main():
     cout << "IMU data in the sequence: " << nImu << endl << endl"""
 
     # Create SLAM system. It initializes all system threads and gets ready to process frames.
-    SLAM = ORB_SLAM3.System(argv[1],argv[2], ORB_SLAM3.System.IMU_MONOCULAR, True, 0, file_name)
+    SLAM = System(argv[1],argv[2], System.IMU_MONOCULAR, True, 0, file_name)
 
     # imageScale = SLAM.GetImageScale()
 

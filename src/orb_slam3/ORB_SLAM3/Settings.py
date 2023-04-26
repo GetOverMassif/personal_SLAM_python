@@ -1,8 +1,58 @@
 import cv2
 import sys
-from Tools import errorPrint
+from ORB_SLAM3.Tools import errorPrint
 
 import ORB_SLAM3.System as System
+from ORB_SLAM3.CameraModels.Pinhole import Pinhole
+from ORB_SLAM3.CameraModels.KannalaBrandt8 import KannalaBrandt8
+
+def readParameterFloat(fSettings, name, required=False):
+    node = cv2.FileNode(fSettings[name])
+    if node.empty():
+        if required:
+            sys.stderr.write(f"{name} required parameter does not exist, aborting...\n")
+            sys.exit(-1)
+        else:
+            sys.stderr.write(f"{name} optional parameter does not exist...")
+            return 0.0, False
+    elif not node.isReal():
+        sys.stderr.write(f"{name} parameter must be a real number, aborting...")
+        exit(-1)
+    else:
+        return node.real(), True
+
+
+def readParameterInt(fSettings, name, required=False):
+    node = cv2.FileNode(fSettings[name])
+    if node.empty():
+        if required:
+            sys.stderr.write(f"{name} required parameter does not exist, aborting...\n")
+            sys.exit(-1)
+        else:
+            sys.stderr.write(f"{name} optional parameter does not exist...")
+            return 0, False
+    elif not node.isInt():
+        sys.stderr.write(f"{name} parameter must be a integer number, aborting...")
+        exit(-1)
+    else:
+        return node.int(), True
+
+
+def readParameterString(fSettings, name, required=False):
+    node = cv2.FileNode(fSettings[name])
+    if node.empty():
+        if required:
+            sys.stderr.write(f"{name} required parameter does not exist, aborting...\n")
+            sys.exit(-1)
+        else:
+            sys.stderr.write(f"{name} optional parameter does not exist...")
+            return 0, False
+    elif not node.isString():
+        sys.stderr.write(f"{name} parameter must be a string, aborting...")
+        exit(-1)
+    else:
+        return node.string(), True
+
 
 class Settings:
     # CameraType
@@ -59,105 +109,82 @@ class Settings:
         if self.bNeedToRectify_:
             self.precomputeRectificationMaps()
             print(f'\t-Computed rectification maps\n',end='')
-
         print(f'----------------------------------\n',end='')
 
-    def readCamera1(fSettings):
-        found
-
+    def readCamera1(self, fSettings):
         # Read camera model
-        string cameraModel = readParameter<string>(fSettings, "Camera.type", found)
-
-        vector<float> vCalibration
-        if (cameraModel == "PinHole")
-        {
-            cameraType_ = PinHole
+        cameraModel, found = readParameterString(fSettings, "Camera.type")
+        vCalibration = []
+        if (cameraModel == "PinHole"):
+            self.cameraType_ = self.PinHole
 
             # Read intrinsic parameters
-            fx = readParameter<float>(fSettings, "Camera1.fx", found)
-            fy = readParameter<float>(fSettings, "Camera1.fy", found)
-            cx = readParameter<float>(fSettings, "Camera1.cx", found)
-            cy = readParameter<float>(fSettings, "Camera1.cy", found)
+            fx, found = readParameterFloat(fSettings, "Camera1.fx")
+            fy, found = readParameterFloat(fSettings, "Camera1.fy")
+            cx, found = readParameterFloat(fSettings, "Camera1.cx")
+            cy, found = readParameterFloat(fSettings, "Camera1.cy")
 
-            vCalibration = {fx, fy, cx, cy}
+            vCalibration = [fx, fy, cx, cy]
 
-            calibration1_ = new Pinhole(vCalibration)
-            originalCalib1_ = new Pinhole(vCalibration)
+            self.calibration1_ = Pinhole(vCalibration)
+            self.originalCalib1_ = Pinhole(vCalibration)
 
             # Check if it is a distorted PinHole
-            readParameter<float>(fSettings, "Camera1.k1", found, False)
-            if (found)
-            {
-                readParameter<float>(fSettings, "Camera1.k3", found, False)
-                if (found)
-                {
-                    vPinHoleDistorsion1_.resize(5)
-                    vPinHoleDistorsion1_[4] = readParameter<float>(fSettings, "Camera1.k3", found)
-                }
-                else
-                {
-                    vPinHoleDistorsion1_.resize(4)
-                }
-                vPinHoleDistorsion1_[0] = readParameter<float>(fSettings, "Camera1.k1", found)
-                vPinHoleDistorsion1_[1] = readParameter<float>(fSettings, "Camera1.k2", found)
-                vPinHoleDistorsion1_[2] = readParameter<float>(fSettings, "Camera1.p1", found)
-                vPinHoleDistorsion1_[3] = readParameter<float>(fSettings, "Camera1.p2", found)
-            }
+            readParameterFloat(fSettings, "Camera1.k1", found, False)
+            if found:
+                readParameterFloat(fSettings, "Camera1.k3", found, False)
+                if found :
+                    self.vPinHoleDistorsion1_.resize(5)
+                    self.vPinHoleDistorsion1_[4] = readParameterFloat(fSettings, "Camera1.k3")
+                else:
+                    self.vPinHoleDistorsion1_.resize(4)
+                self.vPinHoleDistorsion1_[0] = readParameterFloat(fSettings, "Camera1.k1")
+                self.vPinHoleDistorsion1_[1] = readParameterFloat(fSettings, "Camera1.k2")
+                self.vPinHoleDistorsion1_[2] = readParameterFloat(fSettings, "Camera1.p1")
+                self.vPinHoleDistorsion1_[3] = readParameterFloat(fSettings, "Camera1.p2")
 
             # Check if we need to correct distortion from the images
-            if ((self.sensor_ == System.MONOCULAR or self.sensor_ == System.IMU_MONOCULAR) and vPinHoleDistorsion1_.size() != 0)
-            {
-                bNeedToUndistort_ = True
-            }
-        }
-        else if (cameraModel == "Rectified")
-        {
-            cameraType_ = Rectified
-
+            if ((self.sensor_ == System.MONOCULAR or self.sensor_ == System.IMU_MONOCULAR) and len(self.vPinHoleDistorsion1_) != 0) :
+                self.bNeedToUndistort_ = True
+        elif (cameraModel == "Rectified"):
+            self.cameraType_ = self.Rectified
             # Read intrinsic parameters
-            fx = readParameter<float>(fSettings, "Camera1.fx", found)
-            fy = readParameter<float>(fSettings, "Camera1.fy", found)
-            cx = readParameter<float>(fSettings, "Camera1.cx", found)
-            cy = readParameter<float>(fSettings, "Camera1.cy", found)
+            fx = readParameterFloat(fSettings, "Camera1.fx")
+            fy = readParameterFloat(fSettings, "Camera1.fy")
+            cx = readParameterFloat(fSettings, "Camera1.cx")
+            cy = readParameterFloat(fSettings, "Camera1.cy")
 
             vCalibration = {fx, fy, cx, cy}
 
-            calibration1_ = new Pinhole(vCalibration)
-            originalCalib1_ = new Pinhole(vCalibration)
+            self.calibration1_ = Pinhole(vCalibration)
+            self.originalCalib1_ = Pinhole(vCalibration)
 
             # Rectified images are assumed to be ideal PinHole images (no distortion)
-        }
-        else if (cameraModel == "KannalaBrandt8")
-        {
-            cameraType_ = KannalaBrandt
+        elif (cameraModel == "KannalaBrandt8"):
+            self.cameraType_ = self.KannalaBrandt
 
             # Read intrinsic parameters
-            fx = readParameter<float>(fSettings, "Camera1.fx", found)
-            fy = readParameter<float>(fSettings, "Camera1.fy", found)
-            cx = readParameter<float>(fSettings, "Camera1.cx", found)
-            cy = readParameter<float>(fSettings, "Camera1.cy", found)
+            fx = readParameterFloat(fSettings, "Camera1.fx")
+            fy = readParameterFloat(fSettings, "Camera1.fy")
+            cx = readParameterFloat(fSettings, "Camera1.cx")
+            cy = readParameterFloat(fSettings, "Camera1.cy")
 
-            k0 = readParameter<float>(fSettings, "Camera1.k1", found)
-            k1 = readParameter<float>(fSettings, "Camera1.k2", found)
-            k2 = readParameter<float>(fSettings, "Camera1.k3", found)
-            k3 = readParameter<float>(fSettings, "Camera1.k4", found)
+            k0 = readParameterFloat(fSettings, "Camera1.k1")
+            k1 = readParameterFloat(fSettings, "Camera1.k2")
+            k2 = readParameterFloat(fSettings, "Camera1.k3")
+            k3 = readParameterFloat(fSettings, "Camera1.k4")
 
-            vCalibration = {fx, fy, cx, cy, k0, k1, k2, k3}
+            vCalibration = [fx, fy, cx, cy, k0, k1, k2, k3]
 
-            calibration1_ = new KannalaBrandt8(vCalibration)
-            originalCalib1_ = new KannalaBrandt8(vCalibration)
+            self.calibration1_ = KannalaBrandt8(vCalibration)
+            self.originalCalib1_ = KannalaBrandt8(vCalibration)
 
-            if (self.sensor_ == System.STEREO or self.sensor_ == System.IMU_STEREO)
-            {
-                colBegin = readParameter<int>(fSettings, "Camera1.overlappingBegin", found)
-                colEnd = readParameter<int>(fSettings, "Camera1.overlappingEnd", found)
-                vector<int> vOverlapping = {colBegin, colEnd}
+            if (self.sensor_ == System.STEREO or self.sensor_ == System.IMU_STEREO):
+                colBegin = self.readParameter<int>(fSettings, "Camera1.overlappingBegin")
+                colEnd = self.readParameter<int>(fSettings, "Camera1.overlappingEnd")
+                vOverlapping = [colBegin, colEnd]
+                self.calibration1_.mvLappingArea = vOverlapping
+        else:
+            errorPrint(f"Error: {cameraModel} not known")
+            sys.exit(-1)
 
-                static_cast<KannalaBrandt8 *>(calibration1_)->mvLappingArea = vOverlapping
-            }
-        }
-        else
-        {
-            cerr << "Error: " << cameraModel << " not known" << endl
-            exit(-1)
-        }

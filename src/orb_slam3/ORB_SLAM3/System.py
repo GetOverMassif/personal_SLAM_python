@@ -1,10 +1,10 @@
 import cv2
-import sys
+import sys, os
 from dataclasses import dataclass
 
-from Viewer import Viewer
-from Tools import errorPrint
-from Settings import Settings
+from ORB_SLAM3.Tools import errorPrint
+from ORB_SLAM3.Viewer import Viewer
+from ORB_SLAM3.Settings import Settings
 
 
 # @dataclass
@@ -35,7 +35,7 @@ class System:
     
 
     def __init__(self, strVocFile, strSettingsFile, sensor, bUseViewer, initFr, strSequence):
-
+        """ Step 1: Init some member params """
         self.mSensor = sensor
         # self.mpViewer = Viewer()
         self.mbReset = False
@@ -43,7 +43,7 @@ class System:
         self.mbActivateLocalizationMode = False
         self.mbDeactivateLocalizationMode = False
         self.mbShutDown = False
-
+        self.mStrLoadAtlasFromFile = ""
 
         # Output welcome message
         print(f"\nORB-SLAM3 Copyright (C) 2017-2020 Carlos Campos, Richard Elvira, Juan J. Gómez, José M.M. Montiel and Juan D. Tardós, University of Zaragoza.", \
@@ -53,130 +53,109 @@ class System:
               f"\nunder certain conditions. See LICENSE.txt.\n")
         print(f"Input sensor was set to: ",end="")
 
-        if self.mSensor==self.MONOCULAR:
-            print(f"Monocular")             # 单目
-        elif self.mSensor==self.STEREO:
-            print(f"Stereo")                # 双目
-        elif self.mSensor==self.RGBD:
-            print(f"RGB-D")                 # RGBD相机   
-        elif self.mSensor==self.IMU_MONOCULAR:
-            print(f"Monocular-Inertial")    # 单目 + imu
-        elif self.mSensor==self.IMU_STEREO:
-            print(f"Stereo-Inertial")       # 双目 + imu
-        elif self.mSensor==self.IMU_RGBD:
-            print(f"RGB-D-Inertial")        # RGBD相机 + imu
+        modeDict = {self.MONOCULAR:"Monocular", self.STEREO:"Stereo", self.RGBD:"RGB-D", \
+                    self.IMU_MONOCULAR:"Monocular-Inertial", self.IMU_STEREO:"Stereo-Inertial", self.IMU_RGBD:"RGB-D-Inertial"}
+        print(f"{modeDict[self.mSensor]}")
 
-        #Check settings file
-        # Step 2 读取配置文件
+        # Step 2: Check settings file
         fsSettings = cv2.FileStorage(strSettingsFile, cv2.FileStorage_READ)
-        # 如果打开失败，就输出错误信息
         if not fsSettings.isOpened():
             errorPrint(f"Failed to open settings file at: strSettingsFile")
             sys.exit(-1)
 
         # 查看配置文件版本，不同版本有不同处理方法
-        node = fsSettings["File.version"]
+        node = fsSettings.getNode("File.version")
         if not node.empty() and node.isString() and node.string() == "1.0":
+            print("Create Settings")
             settings_ = Settings(strSettingsFile,self.mSensor)
 
             # 保存及加载地图的名字
-            mStrLoadAtlasFromFile = settings_.atlasLoadFile()
-            mStrSaveAtlasToFile = settings_.atlasSaveFile()
+            self.mStrLoadAtlasFromFile = settings_.atlasLoadFile()
+            self.mStrSaveAtlasToFile = settings_.atlasSaveFile()
             # cout << (*settings_) << endl
 
         else:
             settings_ = None
-            node = fsSettings["System.LoadAtlasFromFile"]
+            node = fsSettings.getNode("System.LoadAtlasFromFile")
             if not node.empty() and node.isString():
-                mStrLoadAtlasFromFile = str(node)
+                self.mStrLoadAtlasFromFile = str(node)
 
-            node = fsSettings["System.SaveAtlasToFile"]
+            node = fsSettings.getNode("System.SaveAtlasToFile")
             if not node.empty() and node.isString():
-                mStrSaveAtlasToFile = str(node)
+                self.mStrSaveAtlasToFile = str(node)
 
-        # # 是否激活回环，默认是开着的
-        # node = fsSettings["loopClosing"]
-        # activeLC = True
-        # if not node.empty():
-        #     activeLC = static_cast<int>(fsSettings["loopClosing"]) != 0
+        # 是否激活回环，默认是开着的
+        node = fsSettings.getNode("loopClosing")
+        activeLC = True
+        if not node.empty():
+            activeLC = node.int() != 0
 
-        # mStrVocabularyFilePath = strVocFile
+        self.mStrVocabularyFilePath = strVocFile
 
-        # # ORBSLAM3新加的多地图管理功能，这里加载Atlas标识符
-        # loadedAtlas = False
+        # ORBSLAM3新加的多地图管理功能，这里加载Atlas标识符
+        loadedAtlas = False
 
-        # if mStrLoadAtlasFromFile.empty():
-        # {
-        #     #Load ORB Vocabulary
-        #     cout << endl << "Loading ORB Vocabulary. This could take a while..." << endl
+        if self.mStrLoadAtlasFromFile.isspace():
+            #Load ORB Vocabulary
+            print("\nLoading ORB Vocabulary. This could take a while...\n",end="")
 
-        #     # 建立一个新的ORB字典
-        #     mpVocabulary = new ORBVocabulary()
-        #     # 读取预训练好的ORB字典并返回成功/失败标志
-        #     bool bVocLoad = mpVocabulary.loadFromTextFile(strVocFile)
-        #     # 如果加载失败，就输出错误信息
-        #     if(not bVocLoad)
-        #     {
-        #         cerr << "Wrong path to vocabulary. " << endl
-        #         cerr << "Falied to open at: " << strVocFile << endl
-        #         exit(-1)
-        #     }
-        #     cout << "Vocabulary loaded!" << endl << endl
+            # 建立一个新的ORB字典
+            mpVocabulary = ORBVocabulary()
+            # 读取预训练好的ORB字典并返回成功/失败标志
+            bVocLoad = mpVocabulary.loadFromTextFile(strVocFile)
+            # 如果加载失败，就输出错误信息
+            if not bVocLoad:
+                sys.stderr.write("Wrong path to vocabulary. \n")
+                sys.stderr.write("Falied to open at: {strVocFile}\n")
+                sys.exit(-1)
+            print("Vocabulary loaded!\n\n",end="")
 
-        #     #Create KeyFrame Database
-        #     # Step 4 创建关键帧数据库
-        #     mpKeyFrameDatabase = new KeyFrameDatabase(*mpVocabulary)
+            #Create KeyFrame Database
+            # Step 4 创建关键帧数据库
+            mpKeyFrameDatabase = KeyFrameDatabase(*mpVocabulary)
 
-        #     #Create the Atlas
-        #     # Step 5 创建多地图，参数0表示初始化关键帧id为0
-        #     cout << "Initialization of Atlas from scratch " << endl
-        #     mpAtlas = new Atlas(0)
-        # }
-        # else
-        # {
-        #     #Load ORB Vocabulary
-        #     cout << endl << "Loading ORB Vocabulary. This could take a while..." << endl
+            #Create the Atlas
+            # Step 5 创建多地图，参数0表示初始化关键帧id为0
+            print("Initialization of Atlas from scratch \n", end="")
+            mpAtlas = Atlas(0)
+        else:
+            #Load ORB Vocabulary
+            print("\nLoading ORB Vocabulary. This could take a while...\n",end="")
 
-        #     mpVocabulary = new ORBVocabulary()
-        #     bool bVocLoad = mpVocabulary.loadFromTextFile(strVocFile)
-        #     if(not bVocLoad)
-        #     {
-        #         cerr << "Wrong path to vocabulary. " << endl
-        #         cerr << "Falied to open at: " << strVocFile << endl
-        #         exit(-1)
-        #     }
-        #     cout << "Vocabulary loaded!" << endl << endl
+            mpVocabulary = ORBVocabulary()
+            bVocLoad = mpVocabulary.loadFromTextFile(strVocFile)
+            if not bVocLoad:
+                sys.stderr.write("Wrong path to vocabulary. \n")
+                sys.stderr.write(f"Falied to open at: {strVocFile}\n")
+                sys.exit(-1)
+            print("Vocabulary loaded!\n\n",end="")
 
-        #     #Create KeyFrame Database
-        #     mpKeyFrameDatabase = new KeyFrameDatabase(*mpVocabulary)
+            #Create KeyFrame Database
+            mpKeyFrameDatabase = KeyFrameDatabase(*mpVocabulary)
+            print("Load File\n")
 
-        #     cout << "Load File" << endl
+            # Load the file with an earlier session
+            #clock_t start = clock()
+            print(f"Initialization of Atlas from file: {self.mStrLoadAtlasFromFile}\n",end="")
+            isRead = LoadAtlas(self.BINARY_FILE)
 
-        #     # Load the file with an earlier session
-        #     #clock_t start = clock()
-        #     cout << "Initialization of Atlas from file: " << mStrLoadAtlasFromFile << endl
-        #     bool isRead = LoadAtlas(FileType::BINARY_FILE)
-
-        #     if(not isRead)
-        #     {
-        #         cout << "Error to load the file, please try with other session file or vocabulary file" << endl
-        #         exit(-1)
-        #     }
-        #     #mpKeyFrameDatabase = new KeyFrameDatabase(*mpVocabulary)
+            if not isRead:
+                print("Error to load the file, please try with other session file or vocabulary file")
+                sys.exit(-1)
+            #mpKeyFrameDatabase = new KeyFrameDatabase(*mpVocabulary)
 
 
-        #     #cout << "KF in DB: " << mpKeyFrameDatabase.mnNumKFs << " words: " << mpKeyFrameDatabase.mnNumWords << endl
+            #cout << "KF in DB: " << mpKeyFrameDatabase.mnNumKFs << " words: " << mpKeyFrameDatabase.mnNumWords << endl
 
-        #     loadedAtlas = true
+            loadedAtlas = True
 
-        #     mpAtlas.CreateNewMap()
+            mpAtlas.CreateNewMap()
 
-        #     #clock_t timeElapsed = clock() - start
-        #     #unsigned msElapsed = timeElapsed / (CLOCKS_PER_SEC / 1000)
-        #     #cout << "Binary file read in " << msElapsed << " ms" << endl
+            #clock_t timeElapsed = clock() - start
+            #unsigned msElapsed = timeElapsed / (CLOCKS_PER_SEC / 1000)
+            #cout << "Binary file read in " << msElapsed << " ms" << endl
 
-        #     #usleep(10*1000*1000)
-        # }
+            #usleep(10*1000*1000)
 
         # # 如果是有imu的传感器类型，设置mbIsInertial = true以后的跟踪和预积分将和这个标志有关
         # if (self.mSensor==IMU_STEREO or self.mSensor==IMU_MONOCULAR or self.mSensor==IMU_RGBD)
