@@ -169,5 +169,5 @@ devel/
 .vscode/
 
 __pycache__/
-*/ORBvoc.txt
-*/ORBvoc.txt.tar.gz
+**/ORBvoc.txt
+**/ORBvoc.txt.tar.gz
