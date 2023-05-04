@@ -2,6 +2,7 @@ import os, sys
 MONOCULAR_INTERTIAL_DIR = os.path.dirname(os.path.realpath(__file__))
 EXAMPLE_DIR = os.path.dirname(MONOCULAR_INTERTIAL_DIR)
 ORB_DIR = os.path.dirname(EXAMPLE_DIR)
+print(f"ORB_DIR = {ORB_DIR}")
 sys.path.append(ORB_DIR)
 
 import argparse
@@ -36,13 +37,16 @@ def LoadIMU(strImuPath, vTimeStamps, vAcc, vGyro):
         vGyro.append([float(x) for x in [data[1],data[2],data[3]]])  # 重力计
 
 def main():
-    path_to_tum_data = f"/home/lj/data/TUM-VI/dataset-room4_512_16"
+    path_to_tum_data = f"~/data/TUM-VI/dataset-room4_512_16"
     path_to_vocabulary = f"{ORB_DIR}/Vocabulary/ORBvoc.txt"
     path_to_settings = f"{MONOCULAR_INTERTIAL_DIR}/TUM_512.yaml"
     path_to_image_folder_1 = f"{path_to_tum_data}/mav0/cam0/data"
     path_to_times_file_1 = f"{MONOCULAR_INTERTIAL_DIR}/TUM_TimeStamps/dataset-room4_512.txt"
     path_to_imu_data_1 = f"{MONOCULAR_INTERTIAL_DIR}/TUM_IMU/dataset-room4_512.txt"
     data_clip_name = f"dataset-room4_512_monoi"
+
+# /home/nio/文档/BUAA/personal_SLAM_python/src/orb_slam3
+# /home/nio/文档/BUAA/personal_SLAM_python/src/orb_slam3/Vocabulary
 
     argv = [f"mono_inertial_tum_vi", path_to_vocabulary, path_to_settings, \
             path_to_image_folder_1, path_to_times_file_1, path_to_imu_data_1, \

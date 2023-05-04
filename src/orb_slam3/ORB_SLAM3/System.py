@@ -5,7 +5,12 @@ from dataclasses import dataclass
 from ORB_SLAM3.Tools import errorPrint
 from ORB_SLAM3.Viewer import Viewer
 from ORB_SLAM3.Settings import Settings
-
+from ORB_SLAM3.ORBVocabulary import ORBVocabulary
+from ORB_SLAM3.KeyFrameDatabase import KeyFrameDatabase
+from ORB_SLAM3.Atlas import Atlas
+from ORB_SLAM3.FrameDrawer import FrameDrawer
+from ORB_SLAM3.MapDrawer import MapDrawer
+from ORB_SLAM3.Tracking import Tracking
 
 # @dataclass
 class Verbose:
@@ -33,7 +38,6 @@ class System:
     mpViewer: Viewer = None
     # mpViewer
     
-
     def __init__(self, strVocFile, strSettingsFile, sensor, bUseViewer, initFr, strSequence):
         """ Step 1: Init some member params """
         self.mSensor = sensor
@@ -100,7 +104,7 @@ class System:
             print("\nLoading ORB Vocabulary. This could take a while...\n",end="")
 
             # 建立一个新的ORB字典
-            mpVocabulary = ORBVocabulary()
+            self.mpVocabulary = ORBVocabulary()
             # 读取预训练好的ORB字典并返回成功/失败标志
             bVocLoad = mpVocabulary.loadFromTextFile(strVocFile)
             # 如果加载失败，就输出错误信息
@@ -112,12 +116,12 @@ class System:
 
             #Create KeyFrame Database
             # Step 4 创建关键帧数据库
-            mpKeyFrameDatabase = KeyFrameDatabase(*mpVocabulary)
+            self.mpKeyFrameDatabase = KeyFrameDatabase(self.mpVocabulary)
 
             #Create the Atlas
             # Step 5 创建多地图，参数0表示初始化关键帧id为0
             print("Initialization of Atlas from scratch \n", end="")
-            mpAtlas = Atlas(0)
+            self.mpAtlas = Atlas(0)
         else:
             #Load ORB Vocabulary
             print("\nLoading ORB Vocabulary. This could take a while...\n",end="")
@@ -131,13 +135,13 @@ class System:
             print("Vocabulary loaded!\n\n",end="")
 
             #Create KeyFrame Database
-            mpKeyFrameDatabase = KeyFrameDatabase(*mpVocabulary)
+            mpKeyFrameDatabase = KeyFrameDatabase(mpVocabulary)
             print("Load File\n")
 
             # Load the file with an earlier session
             #clock_t start = clock()
             print(f"Initialization of Atlas from file: {self.mStrLoadAtlasFromFile}\n",end="")
-            isRead = LoadAtlas(self.BINARY_FILE)
+            isRead = self.LoadAtlas(self.BINARY_FILE)
 
             if not isRead:
                 print("Error to load the file, please try with other session file or vocabulary file")
@@ -149,7 +153,7 @@ class System:
 
             loadedAtlas = True
 
-            mpAtlas.CreateNewMap()
+            self.mpAtlas.CreateNewMap()
 
             #clock_t timeElapsed = clock() - start
             #unsigned msElapsed = timeElapsed / (CLOCKS_PER_SEC / 1000)
@@ -157,22 +161,22 @@ class System:
 
             #usleep(10*1000*1000)
 
-        # # 如果是有imu的传感器类型，设置mbIsInertial = true以后的跟踪和预积分将和这个标志有关
-        # if (self.mSensor==IMU_STEREO or self.mSensor==IMU_MONOCULAR or self.mSensor==IMU_RGBD)
-        #     mpAtlas.SetInertialSensor()
+        # 如果是有imu的传感器类型，设置mbIsInertial = True以后的跟踪和预积分将和这个标志有关
+        if self.mSensor==self.IMU_STEREO or self.mSensor==self.IMU_MONOCULAR or self.mSensor==self.IMU_RGBD:
+            self.mpAtlas.SetInertialSensor()
 
-        # # Step 6 依次创建跟踪、局部建图、闭环、显示线程
-        # #Create Drawers. These are used by the Viewer
-        # # 创建用于显示帧和地图的类，由Viewer调用
-        # mpFrameDrawer = new FrameDrawer(mpAtlas)
-        # mpMapDrawer = new MapDrawer(mpAtlas, strSettingsFile, settings_)
+        # Step 6 依次创建跟踪、局部建图、闭环、显示线程
+        #Create Drawers. These are used by the Viewer
+        # 创建用于显示帧和地图的类，由Viewer调用
+        self.mpFrameDrawer = FrameDrawer(self.mpAtlas)
+        self.mpMapDrawer = MapDrawer(self.mpAtlas, strSettingsFile, settings_)
 
-        # #Initialize the Tracking thread
-        # #(it will live in the main thread of execution, the one that called this constructor)
-        # # 创建跟踪线程（主线程）,不会立刻开启,会在对图像和imu预处理后在main主线程种执行
-        # cout << "Seq. Name: " << strSequence << endl
-        # mpTracker = new Tracking(this, mpVocabulary, mpFrameDrawer, mpMapDrawer,
-        #                         mpAtlas, mpKeyFrameDatabase, strSettingsFile, self.mSensor, settings_, strSequence)
+        #Initialize the Tracking thread
+        #(it will live in the main thread of execution, the one that called this constructor)
+        # 创建跟踪线程（主线程）,不会立刻开启,会在对图像和imu预处理后在main主线程种执行
+        print(f"Seq. Name: {strSequence}")
+        self.mpTracker = Tracking(self, mpVocabulary, self.mpFrameDrawer, self.mpMapDrawer,
+                                self.mpAtlas, mpKeyFrameDatabase, strSettingsFile, self.mSensor, settings_, strSequence)
 
         # #Initialize the Local Mapping thread and launch
         # #创建并开启local mapping线程
@@ -190,10 +194,10 @@ class System:
         # if(mpLocalMapper.mThFarPoints!=0)
         # {
         #     cout << "Discard points further than " << mpLocalMapper.mThFarPoints << " m from current camera" << endl
-        #     mpLocalMapper.mbFarPoints = true
+        #     mpLocalMapper.mbFarPoints = True
         # }
         # else
-        #     mpLocalMapper.mbFarPoints = false
+        #     mpLocalMapper.mbFarPoints = False
 
         # #Initialize the Loop Closing thread and launch
         # # mSensor!=MONOCULAR and mSensor!=IMU_MONOCULAR
@@ -217,7 +221,7 @@ class System:
         # #Initialize the Viewer thread and launch
         # # 创建并开启显示线程
         # if(bUseViewer)
-        # #if(false) # TODO
+        # #if(False) # TODO
         # {
         #     mpViewer = new Viewer(this, mpFrameDrawer,mpMapDrawer,mpTracker,strSettingsFile,settings_)
         #     mptViewer = new thread(&Viewer::Run, mpViewer)
@@ -233,3 +237,57 @@ class System:
 
     def TrackMonocular(im, timestamp, vImuMeas, filename=""):
         print(f"hello")
+    
+    def LoadAtlas(self, type):
+        # # 1. 加载地图文件
+        # # string strFileVoc, strVocChecksum
+        # isRead = False
+
+        # pathLoadFileName = "./"
+        # pathLoadFileName = pathLoadFileName.append(self.mStrLoadAtlasFromFile)
+        # pathLoadFileName = pathLoadFileName.append(".osa")
+
+        # if type == self.TEXT_FILE: # File text
+        #     print("Starting to read the save text file ")
+
+        #     std::ifstream ifs(pathLoadFileName, std::ios::binary)
+        #     if not ifs.good():
+        #         print("Load file not found")
+        #         return False
+        #     boost::archive::text_iarchive ia(ifs)
+        #     ia >> strFileVoc
+        #     ia >> strVocChecksum
+        #     ia >> mpAtlas
+        #     print("End to load the save text file ")
+        #     isRead = True
+        # elif type == self.BINARY_FILE: # File binary
+        #     print("Starting to read the save binary file")
+        #     std::ifstream ifs(pathLoadFileName, std::ios::binary)
+        #     if not ifs.good():
+        #         cout << "Load file not found" << endl
+        #         return False
+        #     boost::archive::binary_iarchive ia(ifs)
+        #     ia >> strFileVoc
+        #     ia >> strVocChecksum
+        #     ia >> mpAtlas
+        #     print("End to load the save binary file")
+        #     isRead = True
+
+        # # 2. 如果加载成功
+        # if isRead:
+        #     #Check if the vocabulary is the same
+        #     # 校验词典是否一样
+        #     strInputVocabularyChecksum = CalculateCheckSum(self.mStrVocabularyFilePath,self.TEXT_FILE)
+
+        #     if strInputVocabularyChecksum.compare(strVocChecksum) != 0:
+        #         print("The vocabulary load isn't the same which the load session was created ")
+        #         print(f"-Vocabulary name: {strFileVoc}")
+        #         return False # Both are differents
+
+        #     # 加载对应数据
+        #     self.mpAtlas.SetKeyFrameDababase(mpKeyFrameDatabase)
+        #     self.mpAtlas.SetORBVocabulary(mpVocabulary)
+        #     self.mpAtlas.PostLoad()
+        #     return True
+        # return False
+        return True
